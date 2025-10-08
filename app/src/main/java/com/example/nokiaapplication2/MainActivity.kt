@@ -3,9 +3,11 @@ package com.example.nokiaapplication2
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.net.Uri
+import android.Manifest
 import android.net.wifi.WifiManager
 import android.os.Build
 import android.os.Bundle
@@ -18,13 +20,19 @@ import android.widget.Toast
 import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
 
 
 import java.io.File
 import java.io.FileOutputStream
+import java.net.InetAddress
+import java.net.NetworkInterface
+import java.net.URL
+import kotlin.concurrent.thread
 
 class MainActivity : AppCompatActivity() {
     private lateinit var btnOpenUploadDialog: Button
+    private lateinit var btnSOSCall: Button
     private val PICK_MULTIPLE_FILES = 200
     private val MAX_SIZE_MB = 2.0
 
@@ -37,6 +45,11 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
 
         btnOpenUploadDialog = findViewById(R.id.btnOpenUploadDialog)
+        btnSOSCall = findViewById(R.id.btnSOSCall)
+        btnSOSCall.setOnClickListener{
+            val intent = Intent(this, PhoneCallActivity::class.java)
+            startActivity(intent)
+        }
         btnOpenUploadDialog.setOnClickListener {
             showUploadDialog()
         }
@@ -48,6 +61,8 @@ class MainActivity : AppCompatActivity() {
             Log.d("NETWORK status","Weak network")
             Toast.makeText(this,"Weak network",Toast.LENGTH_LONG).show()
         }
+        logDeviceNetworkInfoSafe(this)
+
     }
 
     private fun showUploadDialog() {
@@ -222,4 +237,81 @@ class MainActivity : AppCompatActivity() {
         }
 
     }
+
+
+    fun logDeviceNetworkInfoSafe(context: Context) {
+        // 1. Phone Number (requires READ_PHONE_STATE)
+        val phoneNumber = if (ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.READ_PHONE_STATE
+            ) == PackageManager.PERMISSION_GRANTED
+        ) {
+            val tm = context.getSystemService(TELEPHONY_SERVICE) as TelephonyManager
+            try {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    tm.line1Number
+                } else {
+                    @Suppress("DEPRECATION")
+                    tm.line1Number
+                }
+            } catch (e: SecurityException) {
+                null
+            }
+        } else {
+            null
+        }
+
+        // 2. Private IP
+        var privateIP: String? = null
+        try {
+            val interfaces = NetworkInterface.getNetworkInterfaces()
+            for (intf in interfaces) {
+                val addrs = intf.inetAddresses
+                for (addr in addrs) {
+                    if (!addr.isLoopbackAddress && addr is InetAddress) {
+                        val ip = addr.hostAddress
+                        if (ip.indexOf(':') < 0) {
+                            privateIP = ip
+                            break
+                        }
+                    }
+                }
+                if (privateIP != null) break
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+
+        // 3. Network Type & QoS
+        val cm = context.getSystemService(CONNECTIVITY_SERVICE) as ConnectivityManager
+        val network = cm.activeNetwork
+        val caps = network?.let { cm.getNetworkCapabilities(it) }
+        val networkType = when {
+            caps?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) == true -> "WIFI"
+            caps?.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) == true -> "CELLULAR"
+            else -> "NONE"
+        }
+        val qosProfile = when (networkType) {
+            "WIFI" -> "DOWNLINK_H_UPLINK_H"
+            "CELLULAR" -> "DOWNLINK_M_UPLINK_L"
+            else -> "UNKNOWN"
+        }
+
+        // 4. Public IP (asynchronously)
+        thread {
+            val publicIP = try {
+                URL("https://api.ipify.org").readText()
+            } catch (e: Exception) {
+                null
+            }
+
+            Log.d("DeviceNetworkInfo", "Phone Number: $phoneNumber")
+            Log.d("DeviceNetworkInfo", "Private IP: $privateIP")
+            Log.d("DeviceNetworkInfo", "Public IP: $publicIP")
+            Log.d("DeviceNetworkInfo", "Network Type: $networkType")
+            Log.d("DeviceNetworkInfo", "QoS Profile: $qosProfile")
+        }
+    }
+
+
 }

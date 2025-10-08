@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="oval">
+
+    <!-- Button color -->
+    <solid android:color="#333333" />
+
+    <!-- Optional: add shadow -->
+    <padding
+        android:left="10dp"
+        android:top="10dp"
+        android:right="10dp"
+        android:bottom="10dp" />
+
+    <!-- Border -->
+    <stroke
+        android:width="1dp"
+        android:color="#FFFFFF" />
+
+    <!-- Size (for small round buttons) -->
+    <size
+        android:width="56dp"
+        android:height="56dp" />
+</shape>

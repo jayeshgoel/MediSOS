@@ -1,0 +1,52 @@
+<layout xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <data>
+        <!-- You can add variables later if needed -->
+    </data>
+
+    <RelativeLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#6ED1F6">
+
+
+
+        <!-- Control Buttons -->
+        <LinearLayout
+            android:id="@+id/control_panel"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_alignParentBottom="true"
+            android:gravity="center"
+            android:orientation="horizontal"
+            android:padding="24dp">
+
+            <!-- Mute Button -->
+            <ImageButton
+                android:id="@+id/btn_mute"
+                android:layout_width="60dp"
+                android:layout_height="60dp"
+                android:src="@drawable/mic_icon"
+                android:background="@drawable/rounded_button_bg"
+                android:scaleType="centerInside"
+                android:padding="10dp"
+                android:contentDescription="Mute" />
+
+
+            <!-- End Call Button -->
+            <ImageButton
+                android:id="@+id/btn_end_call"
+                android:layout_width="60dp"
+                android:layout_height="60dp"
+                android:layout_marginStart="16dp"
+                android:src="@drawable/call_decline_icon"
+                android:background="@drawable/red_button_bg"
+                android:tint="@null"
+                android:scaleType="centerInside"
+                android:padding="12dp"
+                android:contentDescription="End Call" />
+
+        </LinearLayout>
+
+    </RelativeLayout>
+</layout>
