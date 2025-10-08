@@ -1,0 +1,46 @@
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="16dp"
+    android:background="@android:color/white">
+
+    <Button
+        android:id="@+id/btnSelectDocs"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Select Documents" />
+
+    <TextView
+        android:id="@+id/tvSelectedFiles"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="No files selected"
+        android:paddingTop="10dp"
+        android:paddingBottom="10dp" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:weightSum="2"
+        android:padding="8dp">
+
+        <Button
+            android:id="@+id/btnCancel"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Cancel"
+            android:layout_margin="4dp" />
+
+        <Button
+            android:id="@+id/btnUploadDocs"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Upload"
+            android:layout_margin="4dp" />
+
+    </LinearLayout>
+</LinearLayout>
