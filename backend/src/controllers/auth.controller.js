@@ -1,22 +1,10 @@
 // backend/src/controllers/auth.controller.js
-/**
- * Complete auth controller (onboard init, callback, webhook, login, refresh, logout)
- *
- * Requires:
- *  - src/models/user.model.js
- *  - src/models/session.model.js
- *  - src/services/nac.service.js
- *  - src/utils/jwt.util.js
- *
- * Ensure environment variables for NaC are set (NAC_*), and DB connected.
- */
-
 const crypto = require('crypto');
 const bcrypt = require('bcrypt');
 const User = require('../models/user.model');
 const Session = require('../models/session.model');
 const nacService = require('../services/nac.service');
-const { signAccessToken, generateRefreshToken, ACCESS_TTL } = require('../utils/jwt.util');
+const { signAccessToken } = require('../utils/jwt.util');
 
 const SALT_ROUNDS = 10;
 
@@ -24,11 +12,7 @@ function genState() {
   return crypto.randomBytes(16).toString('hex');
 }
 
-/**
- * Create composed refresh token:
- * - refreshToken returned to client: `${tokenId}.${rawToken}`
- * - session stores tokenId and hash(rawToken)
- */
+// create composed refresh token (tokenId.rawToken)
 function createRefreshTokenPayload() {
   const tokenId = crypto.randomBytes(8).toString('hex');
   const rawToken = crypto.randomBytes(48).toString('hex');
@@ -38,7 +22,9 @@ function createRefreshTokenPayload() {
 
 /**
  * POST /api/auth/onboard/init
- * Body: { phone, fullName? }
+ * - Create or find user
+ * - Generate state and authorizationUrl for device to open
+ * - Store state in user.nacVerification.requestId for correlation
  */
 async function onboardInit(req, res) {
   try {
@@ -53,7 +39,7 @@ async function onboardInit(req, res) {
     const state = genState();
     const authorizationUrl = await nacService.buildAuthorizationUrl({ phone, state });
 
-    user.nacVerification.requestId = state; // correlation state
+    user.nacVerification.requestId = state;
     user.nacVerification.checkUrl = authorizationUrl;
     user.nacVerification.status = 'pending';
     user.nacVerification.attempts = (user.nacVerification.attempts || 0) + 1;
@@ -62,7 +48,7 @@ async function onboardInit(req, res) {
 
     return res.json({
       authorizationUrl,
-      message: 'Open authorizationUrl on the user device in system browser using mobile data.'
+      message: 'Open this URL on the user device using mobile data (disable Wi-Fi/VPN).'
     });
   } catch (err) {
     console.error('onboardInit error', err);
@@ -72,7 +58,8 @@ async function onboardInit(req, res) {
 
 /**
  * GET /api/auth/onboard/callback
- * Query: code, state
+ * - Called by NaC redirect with ?code=...&state=...
+ * - Exchange code -> token, call verify endpoint, update user
  */
 async function onboardCallback(req, res) {
   try {
@@ -94,9 +81,11 @@ async function onboardCallback(req, res) {
       return res.status(500).send('token_exchange_failed');
     }
 
+    // Perform number verification with the access token
     const phoneToVerify = user.nacVerification.requestedPhone || user.phone;
     const verifyResp = await nacService.verifyPhoneNumber({ accessToken, phoneNumber: phoneToVerify });
 
+    // Map various possible success shapes to boolean
     let verified = false;
     if (typeof verifyResp === 'boolean') verified = verifyResp === true;
     else if (verifyResp && (verifyResp === true || verifyResp.result === true || verifyResp.value === true)) verified = true;
@@ -105,7 +94,7 @@ async function onboardCallback(req, res) {
     user.nacVerification.rawResponse = verifyResp;
     user.nacVerification.verifiedAt = verified ? new Date() : undefined;
     user.nacVerification.status = verified ? 'verified' : 'failed';
-    user.nacVerification.requestId = verified ? null : user.nacVerification.requestId;
+    if (verified) user.nacVerification.requestId = null; // clear state to avoid replay
     await user.save();
 
     if (verified) {
@@ -121,12 +110,12 @@ async function onboardCallback(req, res) {
 
 /**
  * POST /api/auth/onboard/webhook
- * Optional server-to-server callback from NaC. Validate signature if provided.
+ * - Optional: simulate or accept NaC webhook payloads (secure in prod)
  */
 async function onboardWebhook(req, res) {
   try {
     const payload = req.body;
-    // TODO: verify signature header if NaC provides one
+    // TODO: validate signature header (if NaC sends one) in prod
 
     const requestState = payload.state || payload.requestId || payload.nonce;
     const status = payload.status || payload.verificationStatus || (payload.result === true ? 'verified' : 'failed');
@@ -159,7 +148,7 @@ async function onboardWebhook(req, res) {
 
 /**
  * POST /api/auth/login
- * Body: { phone, deviceId, deviceInfo? }
+ * - Issues access + refresh token if user is verified
  */
 async function login(req, res) {
   try {
@@ -213,7 +202,6 @@ async function login(req, res) {
 
 /**
  * POST /api/auth/refresh
- * Body: { refreshToken }
  */
 async function refreshToken(req, res) {
   try {
@@ -238,6 +226,7 @@ async function refreshToken(req, res) {
 
     const accessToken = signAccessToken(user);
 
+    // rotate refresh token
     const { refreshToken: newRefreshToken, tokenId: newTokenId, rawToken: newRawToken } = createRefreshTokenPayload();
     const newHash = await bcrypt.hash(newRawToken, SALT_ROUNDS);
 
@@ -259,7 +248,6 @@ async function refreshToken(req, res) {
 
 /**
  * POST /api/auth/logout
- * Body: { refreshToken }
  */
 async function logout(req, res) {
   try {
